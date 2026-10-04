@@ -34,6 +34,11 @@ describe("Home", () => {
     expect(screen.getByTestId("nw-chart")).toBeTruthy();
     expect(screen.getByTestId("int-chart")).toBeTruthy();
     expect(screen.getByText(/Final Net Worth/)).toBeTruthy();
+    expect(screen.getByTestId("yearly-breakdown")).toBeTruthy();
+    expect(screen.getByText("Year 1")).toBeTruthy();
+    expect(screen.getByText("Year 30")).toBeTruthy();
+    expect(screen.getByText("Net Worth")).toBeTruthy();
+    expect(screen.getByText("Interest Paid")).toBeTruthy();
   });
 
   it("removes a strategy", () => {

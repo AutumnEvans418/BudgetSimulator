@@ -292,7 +292,74 @@ function Results({ results, accounts }: { results: { runs: Projection[]; baselin
   return (
     <div className="flex flex-col gap-6">
       <SummaryTable results={results} accounts={accounts} />
+      <YearlyBreakdown results={results} accounts={accounts} />
       <Charts results={results} accounts={accounts} />
+    </div>
+  );
+}
+
+function YearlyBreakdown({ results, accounts }: { results: { runs: Projection[]; baseline: Projection }; accounts: Account[] }) {
+  const options = [
+    { id: "baseline", label: results.baseline.strategyName, projection: results.baseline },
+    ...results.runs.map((r) => ({ id: r.strategyName, label: r.strategyName, projection: r })),
+  ];
+  const [pick, setPick] = useState(options[0].id);
+  const projection = options.find((o) => o.id === pick) ?? options[0];
+  const years = Math.floor(projection.projection.snapshots.length / 12);
+
+  return (
+    <div data-testid="yearly-breakdown">
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Year by Year</h2>
+        <select aria-label="breakdown strategy" className="field w-64" value={projection.id} onChange={(e) => setPick(e.target.value)}>
+          {options.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Year</th>
+              {accounts.map((a) => (
+                <th key={a.id} className="text-right">
+                  {a.name}
+                </th>
+              ))}
+              <th className="text-right">Net Worth</th>
+              <th className="text-right">Interest Paid</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: years }, (_, i) => i + 1).map((y) => {
+              const snap = projection.projection.snapshots[y * 12 - 1];
+              if (!snap) return null;
+              let nw = snap.residualCash;
+              const cells = accounts.map((a) => {
+                const bal = snap.balances[a.id];
+                const sign = isDebt(a.type) ? -1 : 1;
+                nw += sign * bal;
+                return (
+                  <td key={a.id} className="text-right tabular-nums">
+                    <span className={sign < 0 ? "text-red-600" : "text-zinc-800 dark:text-zinc-200"}>{fmt.format(bal)}</span>
+                  </td>
+                );
+              });
+              return (
+                <tr key={y}>
+                  <td>Year {y}</td>
+                  {cells}
+                  <td className="text-right tabular-nums font-semibold">{fmt.format(nw)}</td>
+                  <td className="text-right tabular-nums text-red-600">{fmt.format(snap.interestPaid)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
