@@ -343,7 +343,7 @@ export function Title() {
         Budget Simulator
       </h1>
       <p className="text-lg text-zinc-600 dark:text-zinc-400">
-        Enter your accounts and compare savings strategies over the years all in your browser.
+        Enter your accounts/investments/debts and compare savings strategies over the years, all in the privacy of your browser.
       </p>
     </div>
   );
