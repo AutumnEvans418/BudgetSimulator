@@ -24,7 +24,8 @@ Next.js 16 (App Router) React 19 app. Single page: budget fields, account types,
 - `lib/model.ts` — pure data model: `Budget`, `Account`, `Allocation`/`StrategyStep`/`Strategy`, helpers (`isDebt`, `liquidityRank`). No JSX, JSON-friendly (browser storage friendly).
 - `lib/simulate.ts` — pure monthly engine: `simulate(budget, accounts, strategy)` → `Projection`. Simple monthly compounding; cascade semantics fund earlier steps first.
 - `lib/templates.ts` — strategy generators (avalanche, liquidity-first, match-first, computed max-net-worth) produce editable `Strategy` objects from the account list.
-- `app/page.tsx` — all components (`Home`, `BudgetEditor`, `AccountsEditor`, `Simulation`, `Results`, charts as raw SVG polylines, no chart lib).
+- `lib/storage.ts` — budget documents (`SavedBudget` = name + income + accounts + strategies + years), localStorage load/persist, JSON/CSV serialization (`budgetFromJSON`, `accountsToCSV`, `yearsToCSV`), download/read helpers.
+- `app/page.tsx` — all components (`Home`, `BudgetBar`, `BudgetEditor`, `AccountsEditor`, `Simulation`, `Results`, charts as raw SVG polylines, no chart lib). Autosave debounce lives in `Home`.
 - `@/*` path alias maps to repo root.
 
 ## Gotchas
@@ -33,4 +34,5 @@ Next.js 16 (App Router) React 19 app. Single page: budget fields, account types,
 - Native `<select>`/`<button>` elements, no component library. Tests query selects via `getByLabelText("account type")` / `"template"`.
 - Vitest pinned to v3 / `@vitejs/plugin-react` v4 (latest vitest 5 wants `@types/node` >=22; repo pins ^20).
 - Simulation math is intentionally coarse v1: debt compounds like any balance, contribution caps treated as monthly slices (`// ponytail` notes in `lib/simulate.ts`).
-- TODO roadmap (top of `app/page.tsx`): browser storage persistence, import/export, strategy step editor. Module layout already supports them.
+- Budgets persist to localStorage per-browser (`budgetsim:budgets:v1` + active id), autosaved ~500ms after edits; see `persist`/`loadAll` in `lib/storage.ts` (ssr-safe guards, schema `{ v: 1, budgets }`). CSV cannot hold strategies — accounts/results only; strategies travel via JSON.
+- TODO roadmap (top of `app/page.tsx`): strategy step editor. Browser storage + import/export now shipped.

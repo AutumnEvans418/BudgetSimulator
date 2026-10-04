@@ -5,6 +5,7 @@ import {
   avalanche,
   getTemplate,
   liquidityFirst,
+  matchFirst,
   maxNetWorth,
   minInterestPayable,
 } from "./templates";
@@ -70,6 +71,16 @@ describe("templates", () => {
     ];
     const s = maxNetWorth.build(withMatch, 30);
     expect(s.steps[0].name).toMatch(/match/i);
+  });
+
+  it("match first funds only the match slice, not the full cap", () => {
+    const withMatch: Account[] = [
+      ...accounts,
+      { id: "k", type: "retirement_401k", name: "401k", balance: 0, rate: 0.07, currentMonthlyPayment: 0, contributionCap: 23000, employerMatch: { percent: 0.04, maxAmount: 500 } },
+    ];
+    const s = matchFirst.build(withMatch, 30);
+    const matchStep = s.steps.find((st) => st.name.toLowerCase().includes("match"));
+    expect(matchStep!.allocations[0].stop).toBe("match");
   });
 
   it("applies guards", () => {

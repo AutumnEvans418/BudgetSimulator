@@ -43,10 +43,13 @@ export interface Account {
   currentMonthlyPayment: number;
   /** Debt floor payment; if 0 the debt is counted as paid. */
   minMonthlyPayment?: number;
+  /** Monthly portion of payment going to taxes/insurance, not principal (mortgage). */
+  escrow?: number;
   /** Funding goal (emergency fund target, etc.). */
   targetBalance?: number;
   /** Annual contribution cap (401k/HSA). */
   contributionCap?: number;
+  /** Employer match on contributions: percent of each contribution, capped at maxAmount per month. */
   employerMatch?: { percent: number; maxAmount: number };
   /** Months until funds accessible, for liquidity ranking (CD). */
   lockMonths?: number;
@@ -126,6 +129,7 @@ export function emptyAccount(type: AccountType): Account {
     currentMonthlyPayment: 0,
     targetBalance: type === "emergency_fund" ? 0 : undefined,
     contributionCap: type === "retirement_401k" || type === "hsa" ? 0 : undefined,
+    employerMatch: type === "retirement_401k" ? { percent: 0, maxAmount: 0 } : undefined,
   };
 }
 
@@ -140,7 +144,7 @@ export const netMonthly = (b: Budget): number => b.grossMonthly - b.deductionsMo
 export const monthlySurplus = (b: Budget): number =>
   netMonthly(b) - b.expensesMonthly;
 
-export type StopCondition = "payoff" | "target" | "cap";
+export type StopCondition = "payoff" | "target" | "cap" | "match";
 
 export interface Allocation {
   accountId: string;

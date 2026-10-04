@@ -95,11 +95,11 @@ export const liquidityFirst: Template = {
   },
 };
 
-/** Employer match first, then rate-desc debt, then caps, rest to investment. */
+/** Fund only up to the full employer match, then rate-desc debt, then caps, rest to investment. */
 export const matchFirst: Template = {
   id: "match-first",
   label: "Never Leave the Match",
-  description: "Max employer match, then highest-rate debt, then tax-advantaged caps.",
+  description: "Capture employer match only, then highest-rate debt, then tax-advantaged caps.",
   applicable: (a) => a.some((x) => x.employerMatch || isDebt(x.type)),
   build: (accounts, years) => {
     const steps: StrategyStep[] = [];
@@ -108,7 +108,7 @@ export const matchFirst: Template = {
       steps.push(
         step(
           "Capture employer match",
-          matchAccts.map((a) => ({ accountId: a.id, share: 1 / matchAccts.length, stop: "cap" }))
+          matchAccts.map((a) => ({ accountId: a.id, share: 1 / matchAccts.length, stop: "match" }))
         )
       );
     }

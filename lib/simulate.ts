@@ -4,9 +4,10 @@ import { isDebt as isDebtType } from "./model";
 export interface MonthSnapshot {
   month: number; // 1-based absolute from simulation start
   balances: Record<string, number>; // accountId -> balance. Debt = still owed (positive)
-  residualCash: number; // surplus not absorbed by any step this month
+  residualCash: number; // cumulative unallocated surplus balance (no interest, counts toward net worth)
   interestPaid: number; // cumulative debt interest
   contributions: number; // cumulative money moved into accounts
+  contribByAccount: Record<string, number>; // cumulative money moved, per account
 }
 
 export interface Projection {
@@ -36,10 +37,16 @@ interface Ctx {
   balances: Map<string, number>;
   interestPaid: number;
   contributions: number;
+  contribBy: Map<string, number>;
+  amortized: Set<string>; // debt ids that applied full P&I this month
+  cash: number; // running unallocated surplus balance (checking-like)
+  matchBy: Map<string, number>; // employer match already applied this month, per account
+  monthContrib: Map<string, number>; // contributions placed this month, per account
 }
 
 /** How much this allocation can absorb this month, and whether it's finished. */
 function capacity(
+  ctx: Ctx,
   acc: Account,
   stop: StopCondition,
   balance: number
@@ -55,7 +62,30 @@ function capacity(
         max: (acc.contributionCap ?? 0) > 0 ? (acc.contributionCap ?? 0) / 12 : Infinity,
         done: false,
       };
+    case "match": {
+      // fund only what earns the full monthly employer match, then cascade the rest.
+      const m = acc.employerMatch;
+      if (!m || m.percent <= 0 || m.maxAmount <= 0) return { max: 0, done: true };
+      const matched = ctx.matchBy.get(acc.id) ?? 0;
+      if (matched >= m.maxAmount) return { max: 0, done: true };
+      const goal = Math.ceil(m.maxAmount / m.percent);
+      const remaining = Math.max(0, goal - (ctx.monthContrib.get(acc.id) ?? 0));
+      return { max: remaining, done: remaining <= 0 };
+    }
   }
+}
+
+/** Add employer match (percent of contribution, capped per month) to an asset balance. */
+function applyMatch(ctx: Ctx, acc: Account, contrib: number): void {
+  const m = acc.employerMatch;
+  if (!m || m.maxAmount <= 0) return;
+  const used = ctx.matchBy.get(acc.id) ?? 0;
+  const available = Math.max(0, m.maxAmount - used);
+  if (available <= 0) return;
+  const match = Math.min(contrib * m.percent, available);
+  if (match <= 0) return;
+  ctx.balances.set(acc.id, (ctx.balances.get(acc.id) ?? 0) + match);
+  ctx.matchBy.set(acc.id, used + match);
 }
 
 /** Apply one allocation's share of cash. Returns money actually placed. */
@@ -63,21 +93,21 @@ function place(ctx: Ctx, alloc: Allocation, ask: number, balances: Map<string, n
   const acc = ctx.byId.get(alloc.accountId);
   if (!acc) return 0;
   const bal = balances.get(alloc.accountId) ?? 0;
-  const cap = capacity(acc, alloc.stop, bal);
+  const cap = capacity(ctx, acc, alloc.stop, bal);
   if (cap.done) return 0;
   const want = Math.min(ask, cap.max);
   const placed = Math.floor(want);
   if (placed <= 0) return 0;
 
-  if (isDebtType(acc.type) && alloc.stop === "payoff") {
-    balances.set(alloc.accountId, bal - placed);
-  } else if (isDebtType(acc.type)) {
-    // debt with target/cap stop: treat as prepayment toward balance
+  if (isDebtType(acc.type)) {
     balances.set(alloc.accountId, bal - placed);
   } else {
     balances.set(alloc.accountId, bal + placed);
+    ctx.monthContrib.set(alloc.accountId, (ctx.monthContrib.get(alloc.accountId) ?? 0) + placed);
+    applyMatch(ctx, acc, placed);
   }
   ctx.contributions += placed;
+  ctx.contribBy.set(alloc.accountId, (ctx.contribBy.get(alloc.accountId) ?? 0) + placed);
   return placed;
 }
 
@@ -117,20 +147,29 @@ export function simulate(budget: Budget, accounts: Account[], strategy: Strategy
     balances: new Map(accounts.map((a) => [a.id, a.balance])),
     interestPaid: 0,
     contributions: 0,
+    contribBy: new Map(),
+    amortized: new Set(),
+    cash: 0,
+    matchBy: new Map(),
+    monthContrib: new Map(),
   };
   const snapshots: MonthSnapshot[] = [];
   const surplus = Math.max(0, budget.grossMonthly - budget.deductionsMonthly - budget.expensesMonthly);
 
   for (let m = 1; m <= strategy.years * 12; m++) {
+    ctx.amortized.clear();
+    ctx.matchBy.clear();
+    ctx.monthContrib.clear();
     stepMandatory(ctx);
-    const leftover = _distributeCash(ctx, strategy.steps, surplus, ctx.balances);
+    ctx.cash += _distributeCash(ctx, strategy.steps, surplus, ctx.balances);
     stepInterest(ctx);
     snapshots.push({
       month: m,
       balances: Object.fromEntries(ctx.balances),
-      residualCash: leftover,
+      residualCash: ctx.cash,
       interestPaid: ctx.interestPaid,
       contributions: ctx.contributions,
+      contribByAccount: Object.fromEntries(ctx.contribBy),
     });
   }
   return { strategyName: strategy.name, snapshots };
@@ -138,21 +177,36 @@ export function simulate(budget: Budget, accounts: Account[], strategy: Strategy
 
 function stepMandatory(ctx: Ctx): void {
   for (const [id, a] of ctx.byId) {
-    if (a.currentMonthlyPayment <= 0) continue;
     const bal = ctx.balances.get(id) ?? 0;
-    if (isDebtType(a.type)) {
-      const pay = Math.min(a.currentMonthlyPayment, bal);
-      ctx.balances.set(id, bal - pay);
-      ctx.contributions += pay;
-    } else {
+    if (bal <= 0 && isDebtType(a.type)) continue; // debts stop once paid off
+    if (!isDebtType(a.type)) {
+      if (a.currentMonthlyPayment <= 0) continue;
       ctx.balances.set(id, bal + a.currentMonthlyPayment);
       ctx.contributions += a.currentMonthlyPayment;
+      ctx.contribBy.set(id, (ctx.contribBy.get(id) ?? 0) + a.currentMonthlyPayment);
+      ctx.monthContrib.set(id, (ctx.monthContrib.get(id) ?? 0) + a.currentMonthlyPayment);
+      applyMatch(ctx, a, a.currentMonthlyPayment);
+      continue;
+    }
+    const base = a.currentMonthlyPayment > 0 ? a.currentMonthlyPayment : a.minMonthlyPayment ?? 0;
+    if (base <= 0) continue;
+    // ponytail: amortize interest-first; escrow never reduces principal.
+    const payment = Math.max(0, base - (a.escrow ?? 0));
+    const interest = (bal * a.rate) / 12;
+    const principal = Math.min(Math.max(payment - interest, 0), bal);
+    ctx.balances.set(id, bal - principal);
+    if (payment > 0) {
+      ctx.interestPaid += interest;
+      ctx.contributions += principal;
+      ctx.contribBy.set(id, (ctx.contribBy.get(id) ?? 0) + principal);
+      ctx.amortized.add(id);
     }
   }
 }
 
 function stepInterest(ctx: Ctx): void {
   for (const [id, a] of ctx.byId) {
+    if (ctx.amortized.has(id)) continue; // interest already charged in stepMandatory
     const bal = ctx.balances.get(id) ?? 0;
     if (bal <= 0 || a.rate <= 0) continue;
     if (isDebtType(a.type)) {
