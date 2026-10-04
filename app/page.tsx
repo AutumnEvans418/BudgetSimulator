@@ -166,14 +166,24 @@ export function Simulation() {
           </tbody>
         </table>
       </div>
-
+      <button className="bg-blue-900 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded">
+        Run Simulation
+      </button>
+        <label className="max-w-m block text-sm fond-bold mb-2">Years
+          <input type="number" min={0} max={10000000} className="shadow border rounded w-full py-2 px-3 appearance-none" />
+        </label>
     </div>
   );
+  
+}
+
+export function SimulationResult(){
+  //TODO: Return the simulation table, showing the projected amounts over each year for the various accounts.
 }
 
 export function Summary() {
   //TODO: Table with Path, Net worth, cum int paid, net worth vs doing nothing, interest vs doing nothing
-  
+
 }
 
 export function Chart() {
