@@ -2,6 +2,7 @@ import type { Account, AccountType, Budget, Strategy } from "./model";
 import { ACCOUNT_TYPES } from "./model";
 import type { Projection } from "./simulate";
 import { isDebt } from "./model";
+import { getTemplate } from "./templates";
 
 export interface SavedBudget {
   id: string;
@@ -24,12 +25,16 @@ export function makeExampleBudget(): SavedBudget {
     { id: "inv", type: "investment", name: "Investment", balance: 8000, rate: 0.08, currentMonthlyPayment: 0 },
     { id: "hsa", type: "hsa", name: "HSA", balance: 1000, rate: 0.05, currentMonthlyPayment: 0, contributionCap: 4150 },
   ];
+  const defaultStrategy: Strategy = {
+    ...getTemplate("match-first").build(accounts, 30),
+    id: "example-default",
+  };
   return {
     id: "example",
     name: "Example",
     budget: { grossMonthly: 9000, deductionsMonthly: 2500, expensesMonthly: 3500 },
     accounts,
-    strategies: [],
+    strategies: [defaultStrategy],
     years: 30,
     updatedAt: Date.now(),
   };

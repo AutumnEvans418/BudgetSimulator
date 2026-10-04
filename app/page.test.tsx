@@ -48,14 +48,16 @@ describe("Home", () => {
 
   it("adds a strategy, runs it, and renders summary + charts", () => {
     render(<Home />);
-    fireEvent.click(screen.getByRole("button", { name: "Add Strategy" }));
     expect(screen.getAllByTestId("strategy-row")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Add Strategy" }));
+    expect(screen.getAllByTestId("strategy-row")).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: "Run" }));
     expect(screen.getAllByText(/Doing Nothing/).length).toBeGreaterThan(0);
     expect(screen.getByTestId("nw-chart")).toBeTruthy();
     expect(screen.getByTestId("int-chart")).toBeTruthy();
     expect(screen.getByText(/Final Net Worth/)).toBeTruthy();
     expect(screen.getByTestId("yearly-breakdown")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Year by Year/ }));
     expect(screen.getByText("Year 1")).toBeTruthy();
     expect(screen.getByText("Year 30")).toBeTruthy();
     expect(screen.getByText("Net Worth")).toBeTruthy();
@@ -63,18 +65,26 @@ describe("Home", () => {
     expect(screen.getByText("Allocations this year")).toBeTruthy();
   });
 
+  it("renders simulation results for the example without pressing anything", () => {
+    render(<Home />);
+    expect(screen.getAllByTestId("strategy-row")).toHaveLength(1);
+    expect(screen.getAllByText(/Doing Nothing/).length).toBeGreaterThan(0);
+    expect(screen.getByTestId("nw-chart")).toBeTruthy();
+    expect(screen.getByTestId("yearly-breakdown")).toBeTruthy();
+  });
+
   it("removes a strategy", () => {
     render(<Home />);
     fireEvent.click(screen.getByRole("button", { name: "Add Strategy" }));
-    const row = screen.getByTestId("strategy-row");
+    const row = screen.getAllByTestId("strategy-row")[0];
     fireEvent.click(within(row).getByRole("button", { name: "Remove" }));
-    expect(screen.queryAllByTestId("strategy-row")).toHaveLength(0);
+    expect(screen.getAllByTestId("strategy-row")).toHaveLength(1);
   });
 
   it("edits a strategy: adds a step in the builder", () => {
     render(<Home />);
     fireEvent.click(screen.getByRole("button", { name: "Add Strategy" }));
-    fireEvent.click(within(screen.getByTestId("strategy-row")).getByRole("button", { name: "Edit" }));
+    fireEvent.click(within(screen.getAllByTestId("strategy-row")[1]).getByRole("button", { name: "Edit" }));
     expect(screen.getByTestId("strategy-builder")).toBeTruthy();
     const before = screen.getAllByTestId("strategy-step").length;
     fireEvent.click(screen.getByRole("button", { name: "+ Step" }));
@@ -84,7 +94,7 @@ describe("Home", () => {
   it("edits a blank strategy: renames it and sets an allocation", () => {
     render(<Home />);
     fireEvent.click(screen.getByRole("button", { name: "Blank" }));
-    fireEvent.click(within(screen.getByTestId("strategy-row")).getByRole("button", { name: "Edit" }));
+    fireEvent.click(within(screen.getAllByTestId("strategy-row")[1]).getByRole("button", { name: "Edit" }));
     const name = screen.getByLabelText("Strategy name") as HTMLInputElement;
     fireEvent.change(name, { target: { value: "My Plan" } });
     expect(screen.queryAllByTestId("strategy-step")[0]).toBeTruthy();

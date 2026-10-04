@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import type { Account, Budget, Strategy, Allocation, StopCondition } from "../lib/model";
 import {
   ACCOUNT_TYPES,
@@ -49,7 +50,8 @@ export default function Home() {
   });
   const [budgets, setBudgets] = useState<SavedBudget[]>(init.budgets);
   const [activeId, setActiveId] = useState(init.activeId);
-  const [run, setRun] = useState(0);
+  // ponytail: init at 1 so the example (and any loaded budget) shows results without pressing Run
+  const [run, setRun] = useState(1);
   const [savedFlash, setSavedFlash] = useState(false);
   const jsonInput = useRef<HTMLInputElement>(null);
   const csvInput = useRef<HTMLInputElement>(null);
@@ -341,9 +343,44 @@ export function Title() {
         Budget Simulator
       </h1>
       <p className="text-lg text-zinc-600 dark:text-zinc-400">
-        Enter your accounts and compare savings strategies over the years — all in your browser.
+        Enter your accounts and compare savings strategies over the years all in your browser.
       </p>
     </div>
+  );
+}
+
+function Section({
+  title,
+  summary,
+  controls,
+  defaultOpen = true,
+  children,
+}: {
+  title: string;
+  summary?: ReactNode;
+  controls?: ReactNode;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <section className="card">
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          className="flex flex-1 items-center gap-2 text-left"
+          aria-expanded={open}
+          aria-label={`${open ? "Collapse" : "Expand"} ${title}`}
+          onClick={() => setOpen((o) => !o)}
+        >
+          <span className="text-zinc-400">{open ? "▾" : "▸"}</span>
+          <span className="text-lg font-semibold">{title}</span>
+          {summary && <span className="text-sm font-normal text-zinc-500 dark:text-zinc-400">{summary}</span>}
+        </button>
+        {controls}
+      </div>
+      {open && <div className="mt-3">{children}</div>}
+    </section>
   );
 }
 
@@ -351,8 +388,10 @@ function BudgetEditor({ budget, onChange }: { budget: Budget; onChange: (p: Part
   const surplus = monthlySurplus(budget);
   const net = netMonthly(budget);
   return (
-    <section className="card" aria-label="Budget">
-      <h2 className="text-lg font-semibold">Budget</h2>
+    <Section
+      title="Budget"
+      summary={`Net ${fmt.format(net)}/mo · ${fmt.format(surplus)}/mo surplus`}
+    >
       <div className="input-row">
         <Field label="Gross Pay / month" value={budget.grossMonthly} onChange={(v) => onChange({ grossMonthly: v })} />
         <Field label="Deductions / month" value={budget.deductionsMonthly} onChange={(v) => onChange({ deductionsMonthly: v })} />
@@ -361,7 +400,7 @@ function BudgetEditor({ budget, onChange }: { budget: Budget; onChange: (p: Part
       <div className="text-sm text-zinc-600 dark:text-zinc-400">
         Net income <b>{fmt.format(net)}</b> · Surplus to invest <b className="text-emerald-600 dark:text-emerald-400">{fmt.format(surplus)}/mo</b>
       </div>
-    </section>
+    </Section>
   );
 }
 
@@ -407,9 +446,10 @@ function AccountsEditor({
 }) {
   const [pick, setPick] = useState<AccountType>("checking");
   return (
-    <section className="card" aria-label="Accounts">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Accounts</h2>
+    <Section
+      title="Accounts"
+      summary={`${accounts.length} account${accounts.length === 1 ? "" : "s"}`}
+      controls={
         <div className="flex gap-2">
           <select aria-label="account type" className="field w-56" value={pick} onChange={(e) => setPick(e.target.value as AccountType)}>
             {ACCOUNT_TYPES.map((t) => (
@@ -422,12 +462,13 @@ function AccountsEditor({
             Add
           </button>
         </div>
-      </div>
+      }
+    >
       {accounts.length === 0 && <p className="text-sm text-zinc-500">No accounts yet. Add one above.</p>}
       {accounts.map((a) => (
         <AccountRow key={a.id} account={a} onUpdate={onUpdate} onRemove={onRemove} />
       ))}
-    </section>
+    </Section>
   );
 }
 
@@ -513,9 +554,10 @@ function Simulation({
   const [editingId, setEditingId] = useState<string | null>(null);
   const editing = strategies.find((s) => s.id === editingId);
   return (
-    <section className="card" aria-label="Simulation">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Simulation</h2>
+    <Section
+      title="Simulation"
+      summary={`${strategies.length} strateg${strategies.length === 1 ? "y" : "ies"}`}
+      controls={
         <div className="flex items-center gap-2">
           <label className="flex items-center gap-2 text-sm">
             Years
@@ -525,8 +567,8 @@ function Simulation({
             Run
           </button>
         </div>
-      </div>
-
+      }
+    >
       <div className="flex flex-wrap gap-2">
         <select aria-label="template" className="field w-72" value={pick} onChange={(e) => setPick(e.target.value as TemplateId)}>
           {ALL_TEMPLATES.map((t) => (
@@ -579,7 +621,7 @@ function Simulation({
       )}
 
       {results && <Results results={results} accounts={accounts} />}
-    </section>
+    </Section>
   );
 }
 
@@ -739,20 +781,34 @@ function YearlyBreakdown({ results, accounts }: { results: { runs: Projection[];
   const [pick, setPick] = useState(options[0].id);
   const projection = options.find((o) => o.id === pick) ?? options[0];
   const years = Math.floor(projection.projection.snapshots.length / 12);
+  const [open, setOpen] = useState(false);
 
   return (
     <div data-testid="yearly-breakdown">
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Year by Year</h2>
-        <select aria-label="breakdown strategy" className="field w-64" value={projection.id} onChange={(e) => setPick(e.target.value)}>
-          {options.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+        <button
+          type="button"
+          className="flex items-center gap-2 text-left"
+          aria-expanded={open}
+          aria-label={`${open ? "Collapse" : "Expand"} Year by Year`}
+          onClick={() => setOpen((o) => !o)}
+        >
+          <span className="text-zinc-400">{open ? "▾" : "▸"}</span>
+          <h2 className="text-lg font-semibold">Year by Year</h2>
+        </button>
       </div>
-      <div className="overflow-x-auto">
+      {open && (
+        <>
+          <div className="mb-2 flex justify-end">
+            <select aria-label="breakdown strategy" className="field w-64" value={projection.id} onChange={(e) => setPick(e.target.value)}>
+              {options.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="overflow-x-auto">
         <table className="table">
           <thead>
             <tr>
@@ -803,7 +859,9 @@ function YearlyBreakdown({ results, accounts }: { results: { runs: Projection[];
             })}
           </tbody>
         </table>
-      </div>
+        </div>
+        </>
+      )}
     </div>
   );
 }
@@ -843,8 +901,8 @@ function SummaryTable({ results, accounts }: { results: { runs: Projection[]; ba
         </tr>
       </thead>
       <tbody>
-        {rows.map((r) => (
-          <tr key={r.name}>
+        {rows.map((r, i) => (
+          <tr key={i}>
             <td>{r.name}{r.baseline && <span className="ml-2 text-xs text-zinc-500">(baseline)</span>}</td>
             <td className="text-right">{fmt.format(r.nw)}</td>
             <td className="text-right">{fmt.format(r.int)}</td>
@@ -920,9 +978,9 @@ function NwChart({
         {Array.from({ length: Math.floor(years / 5) + 1 }, (_, i) => i * 5).map((yy) => (
           <text key={yy} x={x((yy / years) * (len - 1), len)} y={H - pad + 14} fontSize={9} textAnchor="middle" fill="#71717a">{yy}</text>
         ))}
-        {all.map((s) => (
+        {all.map((s, i) => (
           <polyline
-            key={s.name}
+            key={i}
             points={s.data.map((v, i) => `${x(i, s.data.length)},${y(v)}`).join(" ")}
             fill="none"
             stroke={s.color}
@@ -931,8 +989,8 @@ function NwChart({
         ))}
       </svg>
       <div className="flex flex-wrap gap-2 text-xs">
-        {all.map((s) => (
-          <span key={s.name} className="flex items-center gap-1">
+        {all.map((s, i) => (
+          <span key={i} className="flex items-center gap-1">
             <span className="inline-block h-0 w-3 border-t-2" style={{ borderColor: s.color }} />
             {s.name}
           </span>

@@ -57,7 +57,8 @@ describe("storage", () => {
     const b = makeExampleBudget();
     expect(b.accounts.length).toBeGreaterThan(0);
     expect(b.budget.grossMonthly).toBeGreaterThan(0);
-    expect(b.strategies).toEqual([]);
+    expect(b.strategies).toHaveLength(1);
+    expect(b.strategies[0].name).toBe("Leave No Match");
     expect(b.years).toBe(30);
     expect(b.id).toBeTruthy();
   });
