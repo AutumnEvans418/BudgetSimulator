@@ -24,3 +24,33 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@layer components {
+  .card {
+    @apply flex flex-col gap-4 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800;
+  }
+  .btn-primary {
+    @apply rounded px-3 py-1.5 text-sm font-semibold transition-colors bg-blue-900 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply rounded px-3 py-1.5 text-sm font-semibold transition-colors border border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800;
+  }
+  .field {
+    @apply block w-full rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900;
+  }
+  .label {
+    @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400;
+  }
+  .input-row {
+    @apply grid grid-cols-2 gap-3;
+  }
+  .table {
+    @apply w-full table-auto border-collapse text-sm;
+  }
+  .table th {
+    @apply border-b border-zinc-300 px-2 py-1 text-left font-semibold dark:border-zinc-700;
+  }
+  .table td {
+    @apply border-b border-zinc-200 px-2 py-1 dark:border-zinc-800;
+  }
+}
