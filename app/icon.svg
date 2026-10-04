@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Budget Simulator">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1b2b27"/>
+      <stop offset="1" stop-color="#1e3f38"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <path d="M96 384 L416 384 M96 384 L96 128" stroke="rgba(255,255,255,0.18)" stroke-width="10" stroke-linecap="round"/>
+  <rect x="136" y="296" width="72" height="88" rx="8" fill="#ffd166"/>
+  <rect x="240" y="236" width="72" height="148" rx="8" fill="#4cc9f0"/>
+  <rect x="344" y="168" width="72" height="216" rx="8" fill="#f72585"/>
+</svg>
